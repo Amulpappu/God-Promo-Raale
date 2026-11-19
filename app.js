@@ -515,9 +515,19 @@ async function renderMy() {
 
 async function renderModerate() {
   if (!me || me.role !== 'moderator') { app.innerHTML = empty('Moderators only', 'Sign in with the moderator demo account to review uploads.', '<a class="btn" href="#/signin">Sign in</a>'); return; }
-  const [pend, reps] = await Promise.all([rpc('nn_pending', { p_moderator: me.id }), rpc('nn_list_reports', { p_moderator: me.id })]);
+  const [pend, reps, st] = await Promise.all([rpc('nn_pending', { p_moderator: me.id }), rpc('nn_list_reports', { p_moderator: me.id }), rpc('nn_mod_stats', { p_user: me.id })]);
   app.innerHTML = `
-    <div class="head"><div><h1>Moderation</h1><p class="muted">Approve resources before they appear in the catalogue.</p></div></div>
+    <div class="head"><div><h1>Moderator panel</h1><p class="muted">Approve uploads, handle every report, and talk with the other moderators.</p></div></div>
+    <div class="stat-row">
+      <div class="card stat"><b>${st.pending}</b><span>Pending uploads</span></div>
+      <div class="card stat"><b>${st.open_reports}</b><span>Open reports</span></div>
+      <div class="card stat"><b>${st.approved}</b><span>Verified resources</span></div>
+      <div class="card stat"><b>${st.users}</b><span>Students</span></div>
+      <div class="card stat"><b>${st.reviews}</b><span>Reviews</span></div>
+    </div>
+    <section class="card chat" style="margin-bottom:22px;height:min(48vh,420px)"><div class="list-row"><h2>🛡️ Moderator chat</h2><span class="muted small">Only moderators can see this</span></div>
+      <div class="chat-log" id="modLog"><p class="muted">Loading…</p></div>
+      <form class="chat-form" id="modForm"><input name="body" maxlength="1000" placeholder="Message the moderator team…" aria-label="Moderator message"><button class="btn">Send</button></form><p class="err" id="modErr"></p></section>
     <h2>Pending uploads (${pend.length})</h2>
     ${pend.length ? `<div class="list">${pend.map((p) => `<div class="card list-row"><div><a href="#/resource/${p.id}"><b>${esc(p.title)}</b></a><br><span class="muted small">${TYPES[p.type]} · ${esc(p.subject_name)} · by ${esc(p.uploader_name)} · ${esc(p.file_name || '')}</span></div>
       <div class="actions"><button class="btn btn-sm" data-ok="${p.id}">Approve</button><button class="btn btn-danger btn-sm" data-no="${p.id}">Reject</button></div></div>`).join('')}</div>`
@@ -525,6 +535,18 @@ async function renderModerate() {
     <h2 style="margin-top:28px">Reports</h2>
     ${reps.length ? `<div class="list">${reps.map((p) => `<div class="card list-row"><div><a href="#/resource/${p.resource_id}"><b>${esc(p.title)}</b></a><br><span class="small">${esc(p.reason)}</span><br><span class="muted small">by ${esc(p.reporter)} · ${fmtDate(p.created_at)}</span></div>
       ${p.status === 'open' ? `<button class="btn btn-quiet btn-sm" data-res="${p.id}">Mark resolved</button>` : '<span class="badge b-verified">Resolved</span>'}</div>`).join('')}</div>` : '<p class="muted">No reports.</p>'}`;
+  const loadMod = async () => {
+    try {
+      const msgs = await rpc('nn_mod_feed', { p_user: me.id }); const log = $('#modLog'); if (!log) return;
+      log.innerHTML = msgs.length ? msgs.map((m) => `<div class="msg ${m.mine ? 'mine' : ''}"><div class="who"><b>${esc(m.user_name)}</b><span>${fmtDateTime(m.created_at)}</span></div><div class="body">${esc(m.body)}</div></div>`).join('') : '<p class="muted">No messages yet.</p>';
+      log.scrollTop = log.scrollHeight;
+    } catch (e) { $('#modLog').innerHTML = errorBox(e); }
+  };
+  loadMod(); pollTimer = setInterval(loadMod, 5000);
+  $('#modForm').onsubmit = async (e) => {
+    e.preventDefault(); const inp = e.target.body;
+    try { await rpc('nn_mod_post', { p_user: me.id, p_body: inp.value }); inp.value = ''; $('#modErr').textContent = ''; loadMod(); } catch (err) { $('#modErr').textContent = err.message; }
+  };
   const act = async (fn, args, msg) => { try { await rpc(fn, args); toast(msg); renderModerate(); } catch (e) { toast(e.message, true); } };
   app.querySelectorAll('[data-ok]').forEach((b) => (b.onclick = () => act('nn_review_resource', { p_moderator: me.id, p_id: b.dataset.ok, p_decision: 'approved' }, 'Approved — now visible to juniors')));
   app.querySelectorAll('[data-no]').forEach((b) => (b.onclick = () => act('nn_review_resource', { p_moderator: me.id, p_id: b.dataset.no, p_decision: 'rejected' }, 'Rejected')));
@@ -767,5 +789,9 @@ async function renderChat(uid) {
 }
 
 window.NN = { me: () => me, rpc, TYPES, DAYS, isoDay };
+(async () => {
+  if (!me) return;
+  try { const [p] = await rpc('nn_get_profile', { p_id: me.id }); if (p && (p.role !== me.role || p.name !== me.name)) { me = { ...me, role: p.role, name: p.name }; store.set('nn_user', me); setNav(''); } } catch { /* offline */ }
+})();
 router();
 checkReminders();
