@@ -1,28 +1,87 @@
-# NoteNinja
+<p align="center"><img src="assets/logo-wordmark.png" alt="NoteNinja" width="420"></p>
 
-**IT HAPPENS @ RAALE #14 · Team GOD PROMO · Rathinam Technical Campus**
+<p align="center"><b>One campus dashboard: seniors' notes for juniors + a smart timetable that reminds you on time.</b></p>
 
-One dashboard that solves both challenges:
+<p align="center">
+  <a href="https://noteninja-alpha.vercel.app"><b>🌐 Live website: noteninja-alpha.vercel.app</b></a>
+</p>
 
-- **Challenge 01 — Senior-to-Junior Knowledge Sharing:** seniors upload notes, previous question papers and tips; juniors search, filter, preview/download, rate (1–5 stars), like/dislike, bookmark and report. A moderator approves uploads before they appear, and only approved items show the **Verified** badge.
-- **Challenge 02 — Smart Timetable & Reminders:** weekly class/lab timetable with clash detection, assignments with due date/time and done/overdue status, and reminders (15 min before a class/lab, 24 h and 1 h before a deadline), each sent only once.
-- **Extras:** subject communities with teachers (pin/delete), LinkedIn-style connections, personal chats (only after the other person accepts), and the **Ask Ninja** chatbot.
+**IT HAPPENS @ RAALE #14** · Centre of Excellence, Rathinam Technical Campus · 19 Nov 2026
+**Team GOD PROMO:** Lohith K (Team Lead) · Keshav Pranav M R · Harini C N
 
-## Stack
-Plain HTML, CSS and JavaScript (no build step) · Supabase Postgres + Storage · Vercel.
-The browser never writes to tables directly: every action calls a validated Postgres function (`nn_*`), so all rules are enforced on the server.
+---
 
-## Upload and visibility rules
-- Title (3–120 chars), type and subject are required; empty files are rejected.
-- Allowed: PDF, DOCX, PPTX, PNG, JPG. Max size 10 MB (checked in the browser, in the database function and by the storage bucket).
-- Duplicate files (same SHA-256 hash) are rejected: "This file was already uploaded".
-- New uploads are **pending**; only moderators can approve or reject. Pending items are hidden from other students.
-- Uploader emails are never shown.
+## What it does
 
-## Run it
-1. Open `index.html` with any static server, e.g. `npx serve .` — or open the Vercel link.
-2. Click **Sign in** and pick a demo account (Moderator, Teacher, Senior or Junior) or create one.
+### Challenge 01 — Senior-to-Junior Knowledge Sharing
+- Seniors upload **notes, previous question papers and tips** with title, type, subject and semester.
+- Juniors **search and filter** by department, semester, subject and type, and sort by top rated.
+- New uploads are **Pending** until a moderator approves them; only approved items show **Verified**.
+- PDF and image **preview**, download, **1–5 stars, like/dislike** and comments, **bookmarks**, **reports** and a per-resource **history**.
 
-## Limitations
-- Demo sign-in (pick an account) instead of passwords, so the team can demo all roles quickly.
-- Reminders work while the app is open (browser notifications if allowed).
+### Challenge 02 — Smart Student Timetable & Reminders
+- Weekly **classes and labs** with subject, time and venue; **clashes** and end-before-start times are rejected.
+- **Assignments** with due date and time, done/overdue status, no duplicates.
+- **Reminders** 15 minutes before a class or lab and 24 h / 1 h before a deadline — **each sent only once**.
+
+### Also included
+- **Google and GitHub sign-in** with a profile (department, year, senior/junior, GitHub, LinkedIn).
+- **Subject communities** grouped by semester, **connections** (connect / accept / reject) and **personal chat** with emoji and image/PDF attachments.
+- **Notification panel**, **dark and light mode**, landing page.
+- **Moderator panel**: live counts, pending approvals, all reports and a moderator-only chat.
+- **Ask Ninja** assistant: study plan from your own timetable and deadlines, finds top-rated notes, explains upload rules, page scan, voice input.
+
+## How it works
+
+```
+Browser (HTML/CSS/JS on Vercel)
+   │  every action calls a validated database function (nn_*)
+   ▼
+Supabase ── Auth (Google, GitHub)
+        ├─ Postgres functions: check fields, roles, file type/size, duplicates,
+        │  clashes, past dates, moderator-only actions, chat only after connecting
+        ├─ Postgres tables (row-level security on)
+        └─ Storage buckets: 10 MB limit + allowed file types enforced on the server
+```
+
+The browser never writes to tables directly, so the rules hold even if someone skips the website.
+
+## Rules
+| Rule | Where it is enforced |
+|---|---|
+| Title, type and subject required; empty files rejected | Browser + database function |
+| Only PDF, DOCX, PPTX, PNG, JPG; max 10 MB | Browser + database function + storage bucket |
+| Duplicate files blocked (SHA-256 fingerprint) | Database function |
+| Pending items hidden from other students; only moderators approve | Database function |
+| One review per student; no reviewing your own upload | Database function |
+| No timetable clashes; end after start; due dates in the future | Database function |
+| Personal chat only after a connection is accepted | Database function |
+| Uploader emails never shown | Database function |
+
+## Testing
+27 server-side tests run directly against the database functions — **27 / 27 pass** (uploads, search, reviews, communities, connections, chat, timetable, moderation).
+
+## Try it
+1. Open **https://noteninja-alpha.vercel.app** → **Sign in**.
+2. Use **Continue with Google / GitHub**, or a **Judge account**:
+   - *Judge – Senior* uploads a PDF (try `virus.exe` — rejected)
+   - *Judge – Moderator* approves it on the Moderate page
+   - *Judge – Junior* finds it with filters, previews, rates and downloads it
+3. Open **Timetable** and add an overlapping class to see the clash check.
+
+## Run locally
+No build step is needed:
+```
+npx serve .
+```
+Then open http://localhost:3000.
+
+## Team
+| Member | Role |
+|---|---|
+| **Lohith K** (Team Lead) | Idea, front end and back end |
+| **Keshav Pranav M R** | Features and AI tools (Ask Ninja) |
+| **Harini C N** | Design and testing |
+
+## Tech
+HTML · CSS · JavaScript · Supabase (Postgres, Auth, Storage) · Vercel · Built with the help of Google Antigravity and Claude.
