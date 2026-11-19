@@ -1,7 +1,7 @@
 :root, [data-theme="dark"] {
-  --bg: #0d1117; --card: #161b22; --card-2: #1c2128; --line: #30363d; --text: #e6edf3; --muted: #8b949e;
-  --green: #238636; --green-hi: #2ea043; --green-ink: #3fb950; --blue: #58a6ff; --star: #d29922; --red: #f85149;
-  --yellow-soft: rgba(187,128,9,.15); --green-soft: rgba(46,160,67,.15); --red-soft: rgba(248,81,73,.12); --blue-soft: rgba(56,139,253,.14);
+  --bg: #020617; --card: rgba(10,24,58,.88); --card-2: #0f2350; --line: #1e3a8a; --text: #e8eefc; --muted: #93a4c8;
+  --green: #2563eb; --green-hi: #3b82f6; --green-ink: #60a5fa; --blue: #7cb3ff; --star: #fbbf24; --red: #f87171;
+  --yellow-soft: rgba(251,191,36,.14); --green-soft: rgba(59,130,246,.16); --red-soft: rgba(248,113,113,.14); --blue-soft: rgba(96,165,250,.14);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -184,3 +184,17 @@ body { transition: background .2s, color .2s; }
 [data-theme="dark"] body { background: #020617 url(assets/bg-academic.jpg) center / cover no-repeat fixed; }
 [data-theme="dark"] .foot { background: rgba(2,6,23,.6); }
 @media (max-width: 860px) { [data-theme="dark"] body { background-attachment: scroll; background-size: auto 100vh; background-position: top center; } }
+
+/* blue academic theme details */
+[data-theme="dark"] .card, [data-theme="dark"] .hero { backdrop-filter: blur(6px); }
+[data-theme="dark"] .hero { background: radial-gradient(120% 160% at 0% 0%, rgba(37,99,235,.35), transparent 55%), var(--card); border-color: #1d4ed8; }
+[data-theme="dark"] .btn-quiet { background: #0f2350; border-color: #1e3a8a; }
+[data-theme="dark"] .btn-quiet:hover:not(:disabled) { background: #16306b; }
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background: #050d24; border-color: #1e3a8a; }
+[data-theme="dark"] .msg.mine { background: #12306e; border-color: #3b82f6; }
+[data-theme="dark"] .b-verified { color: #6ee7b7; background: rgba(16,185,129,.15); border-color: rgba(16,185,129,.45); }
+[data-theme="dark"] .res-card:hover { box-shadow: 0 10px 34px -12px rgba(59,130,246,.7); border-color: #3b82f6; }
+[data-theme="dark"] .topbar { background: rgba(2,6,23,.82); border-bottom-color: #1e3a8a; }
+[data-theme="dark"] .drawer { background: #071233; border-left-color: #1e3a8a; }
+[data-theme="dark"] .land-logo { filter: drop-shadow(0 0 34px rgba(59,130,246,.55)); }
+.landing h1 span { color: var(--green-ink); }
