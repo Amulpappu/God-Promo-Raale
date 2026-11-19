@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NoteNinja – Senior-to-Junior Knowledge Sharing</title>
+  <meta name="description" content="NoteNinja: seniors share notes, previous question papers and tips with juniors at Rathinam Technical Campus.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/"><img src="favicon.svg" alt="" width="30" height="30"><span>NoteNinja</span></a>
+    <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
+    <nav class="nav" id="nav" aria-label="Main">
+      <a href="#/" data-nav="home">Dashboard</a>
+      <a href="#/notes" data-nav="notes">Resources</a>
+      <a href="#/upload" data-nav="upload">Upload</a>
+      <a href="#/timetable" data-nav="timetable">Timetable</a>
+      <a href="#/community" data-nav="community">Community</a>
+      <a href="#/people" data-nav="people">People</a>
+      <a href="#/messages" data-nav="messages">Messages</a>
+      <a href="#/my" data-nav="my">My Uploads</a>
+      <a href="#/moderate" data-nav="moderate" id="navModerate" hidden>Moderate</a>
+      <a href="#/signin" class="nav-user" id="navUser">Sign in</a>
+    </nav>
+  </header>
+  <main id="app" class="wrap" tabindex="-1"><p class="muted">Loading…</p></main>
+  <footer class="foot">NoteNinja · Built by Team GOD PROMO for IT HAPPENS @ RAALE #14 · Rathinam Technical Campus</footer>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="app.js"></script>
+  <script src="chatbot.js"></script>
+</body>
+</html>
