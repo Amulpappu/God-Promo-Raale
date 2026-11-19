@@ -6,6 +6,8 @@ const BUCKET = 'nn-resources';
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED = ['pdf', 'docx', 'pptx', 'png', 'jpg', 'jpeg'];
 const TYPES = { notes: 'Notes', previous_paper: 'Previous paper', tips: 'Tips' };
+const DEPARTMENTS = ['CSE', 'CSE (Cyber Security)', 'CSE (AI & ML)', 'AI&DS', 'IT', 'CSBS', 'ECE', 'EEE', 'MECH', 'CIVIL', 'BME', 'Agriculture', 'MBA', 'MCA'];
+const EMOJIS = ['😀', '😂', '😍', '👍', '🙏', '🔥', '🎉', '📚', '✅', '❤️', '🤔', '😅'];
 const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -20,12 +22,12 @@ let me = store.get('nn_user');
 let pollTimer = null;
 
 /* ---------- API ---------- */
-async function rpc(fn, args = {}) {
+async function rpc(fn, args = {}, token = null) {
   let res;
   try {
     res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
       method: 'POST',
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${token || SB_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(args),
     });
   } catch { throw new Error('No internet connection. Check your Wi-Fi and try again.'); }
@@ -84,9 +86,15 @@ function needSignIn(what) {
 function setNav(route) {
   document.querySelectorAll('.nav a[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === route));
   $('#navModerate').hidden = !(me && me.role === 'moderator');
-  $('#navUser').textContent = me ? `${me.name.split(' (')[0]} · Sign out` : 'Sign in';
-  $('#navUser').href = me ? '#/signout' : '#/signin';
+  $('#navUser').textContent = me ? `${me.name.split(' (')[0]}` : 'Sign in';
+  $('#navUser').href = me ? '#/profile' : '#/signin';
+  $('#bellBtn').hidden = !me;
+  if (me) refreshBell();
 }
+const applyTheme = (t) => { document.documentElement.dataset.theme = t; $('#themeBtn').textContent = t === 'light' ? '🌙' : '☀️'; $('#themeBtn').setAttribute('aria-label', t === 'light' ? 'Switch to dark mode' : 'Switch to light mode'); };
+applyTheme(store.get('nn_theme') || 'dark');
+$('#themeBtn').onclick = () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; store.set('nn_theme', t); applyTheme(t); };
+$('#bellBtn').onclick = () => toggleDrawer();
 $('#menuBtn').onclick = () => { const n = $('#nav'); const open = n.classList.toggle('open'); $('#menuBtn').setAttribute('aria-expanded', open); };
 
 /* ---------- Router ---------- */
@@ -104,10 +112,13 @@ const routes = [
   [/^\/messages$/, 'messages', renderMessages],
   [/^\/messages\/([\w-]+)$/, 'messages', renderChat],
   [/^\/signin$/, '', renderSignIn],
-  [/^\/signout$/, '', () => { me = null; store.del('nn_user'); toast('Signed out'); location.hash = '#/'; }],
+  [/^\/profile$/, 'profile', renderProfile],
+  [/^\/signout$/, '', () => { me = null; store.del('nn_user'); store.del('nn_token'); toast('Signed out'); location.hash = '#/'; }],
 ];
 async function router() {
   clearInterval(pollTimer);
+  if (/access_token=/.test(location.hash)) return finishOAuth();
+  if (/error_description=/.test(location.hash)) { const q = new URLSearchParams(location.hash.slice(1)); toast(q.get('error_description') || 'Sign-in failed', true); location.hash = '#/signin'; return; }
   $('#nav').classList.remove('open');
   const path = (location.hash.replace(/^#/, '') || '/').split('?')[0];
   for (const [re, nav, fn] of routes) {
@@ -128,7 +139,8 @@ window.addEventListener('hashchange', router);
 async function renderSignIn() {
   const users = await rpc('nn_list_users');
   app.innerHTML = `
-    <div class="head"><div><h1>Sign in</h1><p class="muted">Demo environment: choose an account, or create your own.</p></div></div>
+    <div class="head"><div><h1>Sign in</h1><p class="muted">Continue with Google or GitHub, or use a demo account.</p></div></div>
+    <div class="actions" style="margin-bottom:24px"><button class="btn btn-oauth" data-oauth="google"><span aria-hidden="true">G</span> Continue with Google</button><button class="btn btn-oauth" data-oauth="github"><span aria-hidden="true">⌥</span> Continue with GitHub</button></div>
     <h2>Demo accounts</h2>
     <div class="users">${users.map((u) => `<button class="user-pick" data-id="${u.id}"><b>${esc(u.name)}</b><br><span class="muted small">${esc(u.role)} · ${esc(u.department)} · Year ${u.year}</span></button>`).join('')}</div>
     <h2 style="margin-top:28px">Create an account</h2>
@@ -138,13 +150,17 @@ async function renderSignIn() {
         <label class="field">College email<input name="email" type="email" required></label>
       </div>
       <div class="form-row">
-        <label class="field">Department<select name="department"><option>CSE</option><option>CSE (Cyber Security)</option><option>AI&DS</option><option>ECE</option><option>IT</option><option>MECH</option></select></label>
+        <label class="field">Department<select name="department">${DEPARTMENTS.map((d) => `<option>${esc(d)}</option>`).join('')}</select></label>
         <label class="field">Year<select name="year"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
       </div>
       <label class="field">I am a<select name="role"><option value="junior">Junior (I want resources)</option><option value="senior">Senior (I want to share)</option></select></label>
       <p class="err" id="nuErr"></p>
       <div><button class="btn">Create account</button></div>
     </form>`;
+  app.querySelectorAll('[data-oauth]').forEach((b) => (b.onclick = () => {
+    const back = location.origin + location.pathname;
+    location.href = `${SB_URL}/auth/v1/authorize?provider=${b.dataset.oauth}&redirect_to=${encodeURIComponent(back)}`;
+  }));
   app.querySelectorAll('.user-pick').forEach((b) => (b.onclick = () => {
     me = users.find((u) => u.id === b.dataset.id); store.set('nn_user', me);
     toast(`Signed in as ${me.name}`); location.hash = '#/';
@@ -159,6 +175,88 @@ async function renderSignIn() {
     } catch (err) { $('#nuErr').textContent = err.message; }
   };
 }
+
+async function finishOAuth() {
+  const q = new URLSearchParams(location.hash.slice(1));
+  const token = q.get('access_token');
+  history.replaceState(null, '', location.pathname + '#/');
+  store.set('nn_token', token);
+  try {
+    const p = await rpc('nn_auth_profile', {}, token);
+    if (p.needs_profile) return renderProfileSetup(p, token);
+    me = { id: p.id, name: p.name, department: p.department, year: p.year, role: p.role };
+    store.set('nn_user', me); toast(`Welcome, ${me.name}`); location.hash = '#/'; router();
+  } catch (e) { app.innerHTML = errorBox(e); }
+}
+function profileFields(p = {}) {
+  return `<div class="form-row">
+      <label class="field">Full name<input name="name" maxlength="60" value="${esc(p.name || '')}" required></label>
+      <label class="field">I am a<select name="role"><option value="junior" ${p.role === 'junior' ? 'selected' : ''}>Junior (I want resources)</option><option value="senior" ${p.role === 'senior' ? 'selected' : ''}>Senior (I want to share)</option></select></label>
+    </div>
+    <div class="form-row">
+      <label class="field">Department<select name="department">${DEPARTMENTS.map((d) => `<option ${p.department === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>
+      <label class="field">Year<select name="year">${[1, 2, 3, 4, 5].map((y) => `<option ${Number(p.year) === y ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
+    </div>
+    <div class="form-row">
+      <label class="field">GitHub profile <small>(optional)</small><input name="github" placeholder="https://github.com/username" value="${esc(p.github_url || p.github || '')}"></label>
+      <label class="field">LinkedIn profile <small>(optional)</small><input name="linkedin" placeholder="https://linkedin.com/in/your-name" value="${esc(p.linkedin_url || '')}"></label>
+    </div>`;
+}
+function renderProfileSetup(p, token) {
+  app.innerHTML = `<div class="head"><div><h1>Create your profile</h1><p class="muted">Signed in as ${esc(p.email || '')}. Tell juniors and seniors who you are.</p></div></div>
+    <form class="form card" id="ps" novalidate>${profileFields(p)}<p class="err" id="psErr"></p><div><button class="btn">Create profile</button></div></form>`;
+  $('#ps').onsubmit = async (e) => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try {
+      const r = await rpc('nn_auth_create_profile', { p_name: f.get('name'), p_department: f.get('department'), p_year: Number(f.get('year')), p_role: f.get('role'), p_github: f.get('github'), p_linkedin: f.get('linkedin') }, token);
+      me = { id: r.id, name: r.name, department: r.department, year: r.year, role: r.role };
+      store.set('nn_user', me); toast('Profile created'); location.hash = '#/';
+    } catch (err) { $('#psErr').textContent = err.message; }
+  };
+}
+async function renderProfile() {
+  if (!me) return needSignIn('My profile');
+  const [p] = await rpc('nn_get_profile', { p_id: me.id });
+  app.innerHTML = `<div class="head"><div><h1>My profile</h1><p class="muted">${roleBadge(p.role)} ${esc(p.department)} · Year ${p.year}</p></div><a class="btn btn-quiet" href="#/signout">Sign out</a></div>
+    <form class="form card" id="pf" novalidate>${profileFields(p)}<p class="err" id="pfErr"></p><div><button class="btn">Save profile</button></div></form>`;
+  $('#pf').onsubmit = async (e) => {
+    e.preventDefault(); const f = new FormData(e.target);
+    try {
+      await rpc('nn_update_profile', { p_user: me.id, p_name: f.get('name'), p_department: f.get('department'), p_year: Number(f.get('year')), p_role: f.get('role'), p_github: f.get('github'), p_linkedin: f.get('linkedin') });
+      me = { ...me, name: f.get('name').trim(), department: f.get('department'), year: Number(f.get('year')), role: me.role === 'moderator' ? 'moderator' : f.get('role') };
+      store.set('nn_user', me); setNav('profile'); toast('Profile saved');
+    } catch (err) { $('#pfErr').textContent = err.message; }
+  };
+}
+function links(p) {
+  return `${p.github_url ? `<a class="icon-link" href="${esc(p.github_url)}" target="_blank" rel="noopener" aria-label="GitHub">GitHub</a>` : ''}${p.linkedin_url ? `<a class="icon-link" href="${esc(p.linkedin_url)}" target="_blank" rel="noopener" aria-label="LinkedIn">LinkedIn</a>` : ''}`;
+}
+
+/* ---------- Notifications drawer ---------- */
+async function refreshBell() {
+  try {
+    const n = await rpc('nn_notifications', { p_user: me.id });
+    const tasks = await rpc('nn_list_assignments', { p_user: me.id });
+    const due = tasks.filter((t) => !t.done && new Date(t.due_at) - Date.now() < 24 * 3600e3);
+    const items = [...due.map((t) => ({ kind: t.overdue ? 'overdue' : 'deadline', text: t.overdue ? `Overdue: ${t.title}` : `Due soon: ${t.title}`, link: '#/timetable', at: t.due_at })), ...n];
+    refreshBell.items = items;
+    const c = $('#bellCount'); c.textContent = items.length; c.hidden = items.length === 0;
+    if (!$('#drawer').hidden) drawDrawer();
+  } catch { /* offline */ }
+}
+function drawDrawer() {
+  const items = refreshBell.items || [];
+  const icon = { connection: '🤝', message: '💬', upload: '📄', deadline: '⏰', overdue: '⚠️' };
+  $('#drawerList').innerHTML = items.length ? items.map((i) => `<a class="note-item" href="${i.link}"><span>${icon[i.kind] || '🔔'}</span><span><b>${esc(i.text)}</b><br><span class="muted small">${i.at ? fmtDateTime(i.at) : ''}</span></span></a>`).join('')
+    : '<p class="muted">You are all caught up 🎉</p>';
+}
+function toggleDrawer(force) {
+  const d = $('#drawer'); const open = force ?? d.hidden; d.hidden = !open;
+  if (open) drawDrawer();
+}
+$('#drawerClose').onclick = () => toggleDrawer(false);
+$('#drawerList').onclick = (e) => { if (e.target.closest('a')) toggleDrawer(false); };
+setInterval(() => me && refreshBell(), 20000);
 
 /* ---------- Dashboard: both challenges in one place ---------- */
 async function renderDashboard() {
@@ -201,6 +299,16 @@ async function renderDashboard() {
       ${latest.length ? `<div class="grid">${latest.slice(0, 6).map(resCard).join('')}</div>` : empty('No resources yet', 'Be the first senior to share notes.', '<a class="btn" href="#/upload">Upload</a>')}
     </section>`;
   bindNotify();
+}
+
+function burst(el, emoji) {
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement('span'); s.className = 'burst'; s.textContent = emoji;
+    s.style.left = `${r.left + r.width / 2 + (Math.random() * 60 - 30)}px`; s.style.top = `${r.top + window.scrollY}px`;
+    s.style.animationDelay = `${i * 60}ms`; document.body.appendChild(s); setTimeout(() => s.remove(), 1400);
+  }
 }
 
 /* ---------- Challenge 1: catalogue ---------- */
@@ -326,6 +434,8 @@ async function renderResource(id) {
           ${mine ? '<button class="btn btn-danger" id="del">Delete</button>' : ''}
         </div>
         <div id="rpBox"></div>
+        <h2 style="margin-top:22px">History</h2>
+        <ul class="timeline" id="hist"><li class="muted">Loading…</li></ul>
       </section>
       <section class="card">
         <h2>Rate this resource</h2>
@@ -345,6 +455,11 @@ async function renderResource(id) {
           : '<p class="muted">No reviews yet.</p>'}
       </section>
     </div>`;
+  rpc('nn_resource_history', { p_id: r.id }).then((h) => {
+    const box = $('#hist'); if (box) box.innerHTML = h.map((x) => `<li><b>${esc(x.event)}</b> · ${esc(x.by_name)} <span class="muted small">${fmtDateTime(x.at)}</span></li>`).join('');
+  }).catch(() => {});
+  const hist = (store.get('nn_history') || []).filter((x) => x.id !== r.id);
+  hist.unshift({ id: r.id, title: r.title, type: r.type, at: new Date().toISOString() }); store.set('nn_history', hist.slice(0, 20));
   $('#dl').onclick = async () => {
     try {
       const url = r.file_url ? r.file_url : await signedUrl(r.file_path);
@@ -370,7 +485,11 @@ async function renderResource(id) {
   if (fb) {
     let stars = my.stars || 0; let vote = my.vote || null;
     fb.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { stars = Number(b.dataset.s); fb.querySelectorAll('[data-s]').forEach((x) => x.classList.toggle('on', Number(x.dataset.s) <= stars)); }));
-    fb.querySelectorAll('[data-v]').forEach((b) => (b.onclick = () => { vote = vote === b.dataset.v ? null : b.dataset.v; fb.querySelectorAll('[data-v]').forEach((x) => x.classList.toggle('on', x.dataset.v === vote)); }));
+    fb.querySelectorAll('[data-v]').forEach((b) => (b.onclick = () => {
+      vote = vote === b.dataset.v ? null : b.dataset.v;
+      fb.querySelectorAll('[data-v]').forEach((x) => x.classList.toggle('on', x.dataset.v === vote));
+      if (vote) burst(b, b.dataset.v === 'like' ? '👍' : '👎');
+    }));
     fb.onsubmit = async (e) => {
       e.preventDefault();
       if (!stars) { $('#fbErr').textContent = 'Choose a rating from 1 to 5 stars'; return; }
@@ -387,6 +506,8 @@ async function renderMy() {
     <div class="head"><h1>My uploads</h1><a class="btn" href="#/upload">+ Upload</a></div>
     ${ups.length ? `<div class="list">${ups.map((u) => `<a class="card list-row" href="#/resource/${u.id}" style="color:var(--text)"><div><b>${esc(u.title)}</b><br><span class="muted small">${TYPES[u.type]} · ${esc(u.subject_name)} · ${fmtDate(u.created_at)}</span></div>${statusBadge(u.status)}</a>`).join('')}</div>`
       : empty('No uploads yet', 'Share your notes or previous papers to help juniors.')}
+    <h2 style="margin-top:28px">Recently viewed</h2>
+    ${(store.get('nn_history') || []).length ? `<div class="list">${store.get('nn_history').map((h) => `<a class="card list-row" href="#/resource/${h.id}" style="color:var(--text)"><b>${esc(h.title)}</b><span class="muted small">${TYPES[h.type]} · viewed ${fmtDateTime(h.at)}</span></a>`).join('')}</div>` : '<p class="muted">Resources you open will appear here.</p>'}
     <h2 style="margin-top:28px">Bookmarks</h2>
     ${bms.length ? `<div class="list">${bms.map((b) => `<a class="card list-row" href="#/resource/${b.id}" style="color:var(--text)"><b>${esc(b.title)}</b><span class="muted small">${TYPES[b.type]} · ${esc(b.subject_name)}</span></a>`).join('')}</div>`
       : '<p class="muted">Nothing bookmarked yet.</p>'}`;
@@ -523,11 +644,14 @@ setInterval(checkReminders, 30000);
 /* ---------- Community (subject rooms with teachers) ---------- */
 async function renderCommunities() {
   const rows = await rpc('nn_communities', { p_user: me ? me.id : null });
+  const sems = [...new Set(rows.map((c) => c.semester))].sort((a, b) => a - b);
+  const topic = (n) => (/english/i.test(n) ? '🗣️' : /math|calculus|statistic|discrete|probab|numerical/i.test(n) ? '➗' : /physics|chem|electric|environment/i.test(n) ? '🔬' : '💻');
   app.innerHTML = `
-    <div class="head"><div><h1>Subject communities</h1><p class="muted">Ask doubts in each subject's room. Teachers can pin important messages.</p></div></div>
-    <div class="grid">${rows.map((c) => `<div class="card res-card"><span class="badge b-type">Semester ${c.semester}</span><h3>${esc(c.name)}</h3>
-      <div class="meta"><span>${esc(c.code)}</span><span>${esc(c.department)}</span><span>${c.members} members</span></div>
-      <div class="actions" style="margin-top:6px">${c.joined || (me && ['teacher', 'moderator'].includes(me.role)) ? `<a class="btn btn-sm" href="#/community/${c.id}">Open room</a>` : `<button class="btn btn-sm" data-join="${c.id}">Join</button>`}</div></div>`).join('')}</div>`;
+    <div class="head"><div><h1>Subject communities</h1><p class="muted">One room per subject, arranged by semester. Ask doubts and share tips with seniors.</p></div></div>
+    ${sems.map((sem) => `<section class="sem"><h2>Semester ${sem}</h2><div class="grid">${rows.filter((c) => c.semester === sem).map((c) => `<div class="card res-card">
+      <div class="row-badges"><span class="badge b-type">${topic(c.name)} ${esc(c.code)}</span>${c.joined ? '<span class="badge b-verified">Joined</span>' : ''}</div><h3>${esc(c.name)}</h3>
+      <div class="meta"><span>${esc(c.department)}</span><span>${c.members} member${c.members === 1 ? '' : 's'}</span></div>
+      <div class="actions" style="margin-top:6px">${c.joined || (me && me.role === 'moderator') ? `<a class="btn btn-sm" href="#/community/${c.id}">Open room</a>` : `<button class="btn btn-sm" data-join="${c.id}">Join</button>`}</div></div>`).join('')}</div></section>`).join('')}`;
   app.querySelectorAll('[data-join]').forEach((b) => (b.onclick = async () => {
     if (!me) { location.hash = '#/signin'; return; }
     try { await rpc('nn_join_community', { p_user: me.id, p_subject: Number(b.dataset.join) }); location.hash = `#/community/${b.dataset.join}`; } catch (e) { toast(e.message, true); }
@@ -536,7 +660,7 @@ async function renderCommunities() {
 async function renderCommunityRoom(sid) {
   if (!me) return needSignIn('Community');
   const subs = await subjects(); const s = subs.find((x) => String(x.id) === sid);
-  const teacher = ['teacher', 'moderator'].includes(me.role);
+  const teacher = me.role === 'moderator';
   app.innerHTML = `<p class="small"><a href="#/community">← All communities</a></p>
     <div class="card chat"><div class="list-row"><h2>${esc(s ? s.name : 'Community')}</h2><span class="muted small">${esc(s ? s.code : '')}</span></div>
     <div class="chat-log" id="log"><p class="muted">Loading…</p></div>
@@ -577,7 +701,7 @@ async function renderPeople() {
       else if (p.connection_status === 'pending') action = `<button class="btn btn-sm" data-acc="${p.connection_id}">Accept</button><button class="btn btn-quiet btn-sm" data-rej="${p.connection_id}">Reject</button>`;
       else if (p.connection_status === 'rejected') action = '<span class="muted small">Not connected</span>';
       else action = `<button class="btn btn-sm" data-con="${p.id}">Connect</button>`;
-      return `<div class="card list-row"><div><b>${esc(p.name)}</b> ${roleBadge(p.role)}<br><span class="muted small">${esc(p.department)} · Year ${p.year}</span></div><div class="actions">${action}</div></div>`;
+      return `<div class="card list-row"><div><b>${esc(p.name)}</b> ${roleBadge(p.role)}<br><span class="muted small">${esc(p.department)} · Year ${p.year}</span> ${links(p)}</div><div class="actions">${action}</div></div>`;
     }).join('')}</div>` : empty('No people found', 'Try another name.');
     const act = async (fn, args, msg) => { try { await rpc(fn, args); toast(msg); load(); } catch (e) { toast(e.message, true); } };
     $('#plist').querySelectorAll('[data-con]').forEach((b) => (b.onclick = () => act('nn_request_connection', { p_user: me.id, p_to: b.dataset.con }, 'Connection request sent')));
@@ -606,23 +730,42 @@ async function renderChat(uid) {
     <div class="card chat"><div class="list-row"><h2>${esc(other ? other.name : 'Chat')}</h2>${other ? roleBadge(other.role) : ''}</div>
     <div class="chat-log" id="log">${ok ? '<p class="muted">Loading…</p>' : ''}</div>
     ${ok ? '' : '<div class="alert alert-info">Connect first to send messages. <a href="#/people">Go to People</a></div>'}
-    <form class="chat-form" id="dm"><input name="body" maxlength="1000" placeholder="${ok ? 'Type a message…' : 'Connect first to send messages'}" ${ok ? '' : 'disabled'} aria-label="Message"><button class="btn" ${ok ? '' : 'disabled'}>Send</button></form><p class="err" id="dErr"></p></div>`;
+    ${ok ? `<div class="emoji-bar" id="emo">${EMOJIS.map((e) => `<button type="button" aria-label="Add ${e}">${e}</button>`).join('')}</div>` : ''}
+    <form class="chat-form" id="dm"><label class="btn btn-quiet attach" title="Attach image or PDF (max 5 MB)" aria-label="Attach file">📎<input type="file" id="dmFile" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp" hidden ${ok ? '' : 'disabled'}></label><input name="body" maxlength="1000" placeholder="${ok ? 'Type a message…' : 'Connect first to send messages'}" ${ok ? '' : 'disabled'} aria-label="Message"><button class="btn" ${ok ? '' : 'disabled'}>Send</button></form><p class="small muted" id="dmFileName"></p><p class="err" id="dErr"></p></div>`;
   if (!ok) return;
   const load = async () => {
     try {
       const msgs = await rpc('nn_get_dms', { p_user: me.id, p_with: uid });
       const log = $('#log'); if (!log) return;
-      log.innerHTML = msgs.length ? msgs.map((m) => `<div class="msg ${m.mine ? 'mine' : ''}"><div class="who">${fmtDateTime(m.created_at)}</div><div class="body">${esc(m.body)}</div></div>`).join('') : '<p class="muted">Say hi 👋</p>';
+      log.innerHTML = msgs.length ? msgs.map((m) => `<div class="msg ${m.mine ? 'mine' : ''}"><div class="who">${fmtDateTime(m.created_at)}</div>${m.body ? `<div class="body">${esc(m.body)}</div>` : ''}
+        ${m.file_url ? (/\.(png|jpe?g|gif|webp)$/i.test(m.file_name || '') ? `<a href="${esc(m.file_url)}" target="_blank" rel="noopener"><img class="chat-img" src="${esc(m.file_url)}" alt="${esc(m.file_name)}"></a>` : `<a class="file-chip" href="${esc(m.file_url)}" target="_blank" rel="noopener">📄 ${esc(m.file_name)}</a>`) : ''}</div>`).join('') : '<p class="muted">Say hi 👋</p>';
       log.scrollTop = log.scrollHeight;
     } catch (e) { $('#log').innerHTML = errorBox(e); }
   };
   await load(); pollTimer = setInterval(load, 4000);
+  let file = null;
+  $('#emo').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; const inp = $('#dm').body; inp.value += b.textContent; inp.focus(); };
+  $('#dmFile').onchange = (e) => {
+    file = e.target.files[0] || null; $('#dErr').textContent = '';
+    if (file && file.size > 5 * 1024 * 1024) { $('#dErr').textContent = 'File is too large. Maximum 5 MB in chat'; file = null; }
+    $('#dmFileName').textContent = file ? `📎 ${file.name}` : '';
+  };
   $('#dm').onsubmit = async (e) => {
     e.preventDefault(); const inp = e.target.body;
-    try { await rpc('nn_send_dm', { p_user: me.id, p_to: uid, p_body: inp.value }); inp.value = ''; $('#dErr').textContent = ''; load(); }
-    catch (err) { $('#dErr').textContent = err.message; }
+    try {
+      let url = null, name = null;
+      if (file) {
+        const path = `${me.id}/${Date.now()}-${file.name.replace(/[^A-Za-z0-9._-]/g, '_')}`;
+        const res = await fetch(`${SB_URL}/storage/v1/object/nn-chat/${path}`, { method: 'POST', headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': file.type }, body: file });
+        if (!res.ok) throw new Error('File upload failed. Use an image or PDF under 5 MB');
+        url = `${SB_URL}/storage/v1/object/public/nn-chat/${path}`; name = file.name;
+      }
+      await rpc('nn_send_dm2', { p_user: me.id, p_to: uid, p_body: inp.value, p_file_url: url, p_file_name: name });
+      inp.value = ''; file = null; $('#dmFile').value = ''; $('#dmFileName').textContent = ''; $('#dErr').textContent = ''; load();
+    } catch (err) { $('#dErr').textContent = err.message; }
   };
 }
 
+window.NN = { me: () => me, rpc, TYPES, DAYS, isoDay };
 router();
 checkReminders();

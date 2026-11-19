@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,7 +13,11 @@
 <body>
   <header class="topbar">
     <a class="brand" href="#/"><img src="favicon.svg" alt="" width="30" height="30"><span>NoteNinja</span></a>
-    <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
+    <div class="top-tools">
+      <button class="icon-btn" id="bellBtn" aria-label="Notifications" hidden>🔔<span class="count" id="bellCount" hidden>0</span></button>
+      <button class="icon-btn" id="themeBtn" aria-label="Switch theme">☀️</button>
+      <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button>
+    </div>
     <nav class="nav" id="nav" aria-label="Main">
       <a href="#/" data-nav="home">Dashboard</a>
       <a href="#/notes" data-nav="notes">Resources</a>
@@ -29,6 +33,10 @@
   </header>
   <main id="app" class="wrap" tabindex="-1"><p class="muted">Loading…</p></main>
   <footer class="foot">NoteNinja · Built by Team GOD PROMO for IT HAPPENS @ RAALE #14 · Rathinam Technical Campus</footer>
+  <aside class="drawer" id="drawer" hidden aria-label="Notifications">
+    <div class="list-row"><h2>Notifications</h2><button class="icon-btn" id="drawerClose" aria-label="Close notifications">✕</button></div>
+    <div id="drawerList"></div>
+  </aside>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script src="app.js"></script>
   <script src="chatbot.js"></script>

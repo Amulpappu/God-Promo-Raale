@@ -234,7 +234,7 @@
         </div>
 
         <div class="cai-chips">
-          <div class="cai-chip" id="chipSchedule">📅 5-Day Study Plan</div>
+          <div class="cai-chip" id="chipSchedule">📅 My Study Plan</div><div class="cai-chip" id="chipNotes">📚 DS notes</div>
           <div class="cai-chip" id="chipScan">🔍 Scan This Page</div>
           <div class="cai-chip" id="chipRules">🛡️ Upload Rules</div>
         </div>
@@ -243,7 +243,7 @@
           <input type="file" id="caiFileInput" style="display:none;" accept=".pdf,.docx,.pptx,.png,.jpg,.jpeg">
           <button class="cai-btn-icon" id="caiFileBtn" title="Attach file">📎</button>
           <button class="cai-btn-icon" id="caiMicBtn" title="Speak">🎙️</button>
-          <input type="text" class="cai-input" id="caiInput" placeholder="Ask anything about this page...">
+          <input type="text" class="cai-input" id="caiInput" placeholder="Ask: my plan, DSA notes, upload rules…">
           <button class="cai-btn-send" id="caiSendBtn">Send</button>
         </div>
       </div>
@@ -308,6 +308,12 @@
         return;
       }
 
+      if ((text.includes("schedule") || text.includes("plan") || text.includes("timetable")) && window.NN && window.NN.me()) {
+        personalPlan(); return;
+      }
+      if (window.NN && /(notes|paper|tips|find|resource)/.test(text) && !text.includes("rule") && !text.includes("upload")) {
+        findResources(userText); return;
+      }
       if (text.includes("schedule") || text.includes("plan") || text.includes("timetable")) {
         appendMessage(`📅 5-Day Smart Study Schedule:\n• Day 1: Core Concepts & Unit 1 Fundamentals (2.5 hrs)\n• Day 2: Unit 2 & 3 Key Algorithms & Flowcharts (3 hrs)\n• Day 3: Problem Solving & Numerical Derivations (3.5 hrs)\n• Day 4: Review Previous 3 Years' Solved Papers (3 hrs)\n• Day 5: Full Mock Revision & Formula Cheat-Sheets (2 hrs)\n💡 Tip: Take a 10-min break every 50 mins!`, "bot");
         return;
@@ -325,6 +331,33 @@
       }
 
       appendMessage(`🤖 I searched the page for "${userText}". You can ask me to prepare a study schedule, scan the page, or test file upload validation!`, "bot");
+    }
+
+
+    async function personalPlan() {
+      const NN = window.NN, me = NN.me();
+      try {
+        const [slots, tasks] = await Promise.all([NN.rpc("nn_list_slots", { p_user: me.id }), NN.rpc("nn_list_assignments", { p_user: me.id })]);
+        const today = NN.isoDay(new Date());
+        const todays = slots.filter((s) => s.day === today);
+        const pending = tasks.filter((t) => !t.done).sort((a, b) => new Date(a.due_at) - new Date(b.due_at));
+        const overdue = pending.filter((t) => t.overdue);
+        let out = `📅 Your plan, ${me.name.split(" (")[0]}:\n`;
+        out += todays.length ? `\nToday (${NN.DAYS[today]}):\n` + todays.map((s) => `• ${s.start_time}–${s.end_time} ${s.title}${s.venue ? " (" + s.venue + ")" : ""}`).join("\n") : "\nNo classes today — a good day to study!";
+        if (overdue.length) out += `\n\n⚠️ Finish first (overdue):\n` + overdue.map((t) => `• ${t.title}`).join("\n");
+        const next = pending.filter((t) => !t.overdue).slice(0, 3);
+        if (next.length) out += `\n\n⏰ Next deadlines:\n` + next.map((t) => `• ${t.title} — ${new Date(t.due_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`).join("\n");
+        out += `\n\n💡 Suggested: study 50 min after your last class, then 10 min break. Start with the nearest deadline.`;
+        appendMessage(out, "bot");
+      } catch (e) { appendMessage("I couldn't load your timetable right now. Please try again.", "bot"); }
+    }
+    async function findResources(q) {
+      const words = q.toLowerCase().replace(/(notes|paper|papers|previous|tips|find|for|resource|resources|me|the|of|show|give)/g, " ").trim();
+      try {
+        const rows = await window.NN.rpc("nn_search_resources", { p_q: words || null, p_sort: "top" });
+        if (!rows.length) { appendMessage(`🔍 No approved resources found for "${words || q}". Try a subject name like "Data Structures".`, "bot"); return; }
+        appendMessage(`📚 Top resources for "${words || q}":\n` + rows.slice(0, 5).map((r) => `• ${r.title} (${window.NN.TYPES[r.type]}, ★ ${r.avg_stars ?? "–"})`).join("\n") + `\n\nOpen Resources to download them.`, "bot");
+      } catch (e) { appendMessage("Search is not available right now.", "bot"); }
     }
 
     function handleSend() {
@@ -417,9 +450,10 @@
     };
 
     document.getElementById("chipSchedule").onclick = () => {
-      input.value = "Create a 5-day study plan";
+      input.value = "Make my study plan";
       handleSend();
     };
+    document.getElementById("chipNotes").onclick = () => { input.value = "Find Data Structures notes"; handleSend(); };
     document.getElementById("chipScan").onclick = () => {
       input.value = "Scan this page";
       handleSend();
