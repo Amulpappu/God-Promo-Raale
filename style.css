@@ -177,3 +177,5 @@ body { transition: background .2s, color .2s; }
 .btn-oauth:hover:not(:disabled) { background: #f3f4f6; color: #1f2328; border-color: #8c959f; }
 .pdf-view { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .img-view { max-width: 100%; border-radius: 10px; border: 1px solid var(--line); }
+
+.land-logo { max-width: min(420px, 90%); height: auto; border-radius: 22px; }
