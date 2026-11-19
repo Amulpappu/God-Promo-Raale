@@ -164,3 +164,16 @@ body { transition: background .2s, color .2s; }
 .hero h1 { font-size: 32px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 @media (max-width: 860px) { .top-tools { margin-left: auto; } }
+
+.landing { text-align: center; padding: 40px 10px 30px; max-width: 760px; margin: 0 auto; }
+.landing h1 { font-size: clamp(32px, 5vw, 52px); letter-spacing: -0.035em; line-height: 1.08; margin: 18px 0 14px; }
+.landing h1 span { color: var(--green-ink); }
+.landing p { font-size: 18px; margin-bottom: 24px; }
+.land-logo { filter: drop-shadow(0 0 30px rgba(63,185,80,.45)); animation: bob 3s ease-in-out infinite alternate; }
+@keyframes bob { to { transform: translateY(-8px); } }
+.land-feats { margin-top: 10px; }
+.signin-card { text-align: center; max-width: 520px; margin: 0 auto 18px; display: grid; justify-items: center; gap: 6px; }
+.btn-oauth { background: #fff; color: #1f2328; border-color: #d0d7de; }
+.btn-oauth:hover:not(:disabled) { background: #f3f4f6; color: #1f2328; border-color: #8c959f; }
+.pdf-view { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.img-view { max-width: 100%; border-radius: 10px; border: 1px solid var(--line); }

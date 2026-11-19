@@ -99,7 +99,7 @@ $('#menuBtn').onclick = () => { const n = $('#nav'); const open = n.classList.to
 
 /* ---------- Router ---------- */
 const routes = [
-  [/^\/$/, 'home', renderDashboard],
+  [/^\/$/, 'home', () => (me ? renderDashboard() : renderLanding())],
   [/^\/notes$/, 'notes', renderCatalogue],
   [/^\/upload$/, 'upload', renderUpload],
   [/^\/resource\/([\w-]+)$/, 'notes', renderResource],
@@ -139,8 +139,8 @@ window.addEventListener('hashchange', router);
 async function renderSignIn() {
   const users = await rpc('nn_list_users');
   app.innerHTML = `
-    <div class="head"><div><h1>Sign in</h1><p class="muted">Continue with Google or GitHub, or use a demo account.</p></div></div>
-    <div class="actions" style="margin-bottom:24px"><button class="btn btn-oauth" data-oauth="google"><span aria-hidden="true">G</span> Continue with Google</button><button class="btn btn-oauth" data-oauth="github"><span aria-hidden="true">⌥</span> Continue with GitHub</button></div>
+    <div class="signin-card card"><img src="favicon.svg" alt="" width="56" height="56"><h1>Sign in to NoteNinja</h1><p class="muted">Use your Google or GitHub account.</p></div>
+    <div class="actions" style="margin-bottom:24px;justify-content:center"><button class="btn btn-oauth" data-oauth="google"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Continue with Google</button><button class="btn btn-oauth" data-oauth="github"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg> Continue with GitHub</button></div>
     <h2>Demo accounts</h2>
     <div class="users">${users.map((u) => `<button class="user-pick" data-id="${u.id}"><b>${esc(u.name)}</b><br><span class="muted small">${esc(u.role)} · ${esc(u.department)} · Year ${u.year}</span></button>`).join('')}</div>
     <h2 style="margin-top:28px">Create an account</h2>
@@ -163,7 +163,7 @@ async function renderSignIn() {
   }));
   app.querySelectorAll('.user-pick').forEach((b) => (b.onclick = () => {
     me = users.find((u) => u.id === b.dataset.id); store.set('nn_user', me);
-    toast(`Signed in as ${me.name}`); location.hash = '#/';
+    toast(`Signed in as ${me.name}`); location.hash = '#/notes';
   }));
   $('#newUser').onsubmit = async (e) => {
     e.preventDefault();
@@ -257,6 +257,24 @@ function toggleDrawer(force) {
 $('#drawerClose').onclick = () => toggleDrawer(false);
 $('#drawerList').onclick = (e) => { if (e.target.closest('a')) toggleDrawer(false); };
 setInterval(() => me && refreshBell(), 20000);
+
+function renderLanding() {
+  app.innerHTML = `
+    <section class="landing">
+      <img src="favicon.svg" alt="" width="84" height="84" class="land-logo">
+      <h1>Notes from seniors.<br><span>Reminders that keep you on time.</span></h1>
+      <p class="muted">NoteNinja is one campus dashboard for Rathinam students: find verified notes, previous question papers and tips from seniors, and never miss a class, lab or assignment deadline.</p>
+      <div class="actions" style="justify-content:center"><a class="btn" href="#/signin">Get started — sign in</a><a class="btn btn-quiet" href="#/notes">Browse resources</a></div>
+    </section>
+    <div class="grid land-feats">
+      <div class="card"><h3>📚 Verified resources</h3><p class="muted">Seniors upload notes, papers and tips. A moderator checks each one before juniors see it.</p></div>
+      <div class="card"><h3>🔍 Find in seconds</h3><p class="muted">Search and filter by department, semester, subject and type. Sort by top rated.</p></div>
+      <div class="card"><h3>⏰ Smart timetable</h3><p class="muted">Classes, labs and deadlines in one place, with clash checks and reminders sent once.</p></div>
+      <div class="card"><h3>💬 Communities & chat</h3><p class="muted">Subject rooms by semester, LinkedIn-style connections and personal chats.</p></div>
+      <div class="card"><h3>⭐ Ratings & history</h3><p class="muted">Stars, likes and reviews show which resources really help.</p></div>
+      <div class="card"><h3>🥷 Ask Ninja</h3><p class="muted">Your assistant makes a study plan from your timetable and finds the right notes.</p></div>
+    </div>`;
+}
 
 /* ---------- Dashboard: both challenges in one place ---------- */
 async function renderDashboard() {
@@ -434,6 +452,7 @@ async function renderResource(id) {
           ${mine ? '<button class="btn btn-danger" id="del">Delete</button>' : ''}
         </div>
         <div id="rpBox"></div>
+        <div id="preview"></div>
         <h2 style="margin-top:22px">History</h2>
         <ul class="timeline" id="hist"><li class="muted">Loading…</li></ul>
       </section>
@@ -460,12 +479,15 @@ async function renderResource(id) {
   }).catch(() => {});
   const hist = (store.get('nn_history') || []).filter((x) => x.id !== r.id);
   hist.unshift({ id: r.id, title: r.title, type: r.type, at: new Date().toISOString() }); store.set('nn_history', hist.slice(0, 20));
-  $('#dl').onclick = async () => {
+  const fileUrl = async () => (r.file_url ? r.file_url : await signedUrl(r.file_path));
+  $('#dl').onclick = async () => { try { window.open(await fileUrl(), '_blank', 'noopener'); } catch (e) { toast(e.message, true); } };
+  (async () => {
     try {
-      const url = r.file_url ? r.file_url : await signedUrl(r.file_path);
-      window.open(url, '_blank', 'noopener');
-    } catch (e) { toast(e.message, true); }
-  };
+      const u = await fileUrl(); const n = (r.file_name || '').toLowerCase();
+      if (n.endsWith('.pdf')) $('#preview').innerHTML = `<h2 style="margin-top:22px">Preview</h2><iframe class="pdf-view" src="${esc(u)}" title="Preview of ${esc(r.title)}"></iframe>`;
+      else if (/\.(png|jpe?g)$/.test(n)) $('#preview').innerHTML = `<h2 style="margin-top:22px">Preview</h2><img class="img-view" src="${esc(u)}" alt="${esc(r.title)}">`;
+    } catch { /* no preview */ }
+  })();
   if ($('#bm')) $('#bm').onclick = async () => {
     try { const on = await rpc('nn_bookmark', { p_user: me.id, p_resource: r.id }); $('#bm').textContent = on ? '★ Bookmarked' : '☆ Bookmark'; toast(on ? 'Saved to bookmarks' : 'Removed from bookmarks'); }
     catch (e) { toast(e.message, true); }
